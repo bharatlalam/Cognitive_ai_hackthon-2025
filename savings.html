@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Finance Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, lightblue, #203a43, #2c5364);
+      color: #f0f0f0;
+    }
+
+    header {
+      text-align: center;
+      padding: 20px;
+      background: linear-gradient(135deg, pink, #00bcd4);
+      box-shadow: 0 0 10px #333;
+    }
+
+    .slogan {
+      font-size: 24px;
+      margin: 10px 0;
+      color: indigo;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .form-box {
+      background: lightblue;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      width: 90%;
+      max-width: 500px;
+    }
+
+    input, select, button {
+      padding: 10px;
+      margin: 10px 0;
+      width: 100%;
+      border-radius: 5px;
+      border: none;
+      font-size: 16px;
+    }
+
+    button {
+      background-color: #00bcd4;
+      color: pink;
+      cursor: pointer;
+    }
+
+    #charts {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 30px;
+      margin-top: 20px;
+    }
+
+    canvas {
+      background: #fff;
+      border-radius: 8px;
+    }
+
+    #suggestion {
+      margin-top: 10px;
+      font-style: italic;
+      color: #ffb74d;
+    }
+
+    /* Chatbot */
+    #chatbotToggle {
+      position: relative;
+      bottom: 20px;
+      right: 20px;
+      background-color: burlywood;
+      color: black;
+      padding: 8px 14px;
+      border-radius: 30px;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+      box-shadow: 0 0 10px #00ffc8;
+    }
+
+    #chatbotBox {
+      position: fixed;
+      bottom: 70px;
+      right: 20px;
+      width: 300px;
+      background-color: lightcyan;
+      border: 2px solid #00ffc8;
+      border-radius: 10px;
+      display: none;
+      flex-direction: column;
+      max-height: 400px;
+    }
+
+    #chatbotMessages {
+      padding: 10px;
+      height: 300px;
+      overflow-y: auto;
+      font-size: 14px;
+    }
+
+    #chatbotInput {
+      padding: 10px;
+      border-top: 1px solid #333;
+      width: calc(100% - 20px);
+      margin: 10px;
+      background: #f0f0f0;
+      color: black;
+    }
+
+    .user-msg, .bot-msg {
+      margin: 8px 0;
+      padding: 10px;
+      border-radius: 8px;
+      max-width: 80%;
+      word-wrap: break-word;
+    }
+
+    .user-msg {
+      background-color: #4c5c68;
+      color: white;
+      align-self: flex-end;
+      margin-left: auto;
+    }
+
+    .bot-msg {
+      background-color: #2a9d8f;
+      color: white;
+      align-self: flex-start;
+      margin-right: auto;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div id="line1" class="slogan"></div>
+    <div id="line2" class="slogan"></div>
+    <div id="line3" class="slogan"></div>
+  </header>
+
+  <div class="container">
+    <div class="form-box">
+      <label>Monthly Salary:</label>
+      <input type="number" id="salary" placeholder="Enter your monthly salary">
+
+      <label>Expense Category:</label>
+      <select id="category">
+        <option>Food</option>
+        <option>Rent</option>
+        <option>Shopping</option>
+        <option>Utilities</option>
+        <option>Travel</option>
+      </select>
+
+      <label>Amount:</label>
+      <input type="number" id="amount" placeholder="Enter amount spent">
+
+      <button onclick="addExpense()">Add Expense</button>
+      <button onclick="analyze()">Analyze</button>
+    </div>
+
+    <div id="charts">
+      <canvas id="pieChart" width="300" height="300"></canvas>
+      <canvas id="barChart" width="300" height="300"></canvas>
+      <div id="suggestion"></div>
+    </div>
+  </div>
+
+  <!-- Chatbot -->
+  <button id="chatbotToggle" onclick="toggleChatbot()">Chat 💬</button>
+  <div id="chatbotBox">
+    <div id="chatbotMessages"></div>
+    <input type="text" id="chatbotInput" placeholder="Ask something..." onkeydown="if(event.key==='Enter') handleChat()" />
+  </div>
+
+  <script>
+    const slogans = [
+      "Plan Smart. Save Smart.",
+      "Track. Analyze. Improve.",
+      "Take Charge of Your Finance."
+    ];
+    const ids = ["line1", "line2", "line3"];
+    let line = 0, char = 0;
+    function typeLines() {
+      if (line < slogans.length) {
+        const current = slogans[line];
+        const element = document.getElementById(ids[line]);
+        element.textContent = current.slice(0, char + 1);
+        char++;
+        if (char < current.length) setTimeout(typeLines, 100);
+        else { char = 0; line++; setTimeout(typeLines, 500); }
+      }
+    }
+    typeLines();
+
+    let expenses = [];
+    function addExpense() {
+      const cat = document.getElementById("category").value;
+      const amt = parseFloat(document.getElementById("amount").value);
+      if (!isNaN(amt)) expenses.push({ category: cat, amount: amt });
+      document.getElementById("amount").value = "";
+    }
+
+    function analyze() {
+      if (expenses.length === 0) return alert("Add some expenses first!");
+
+      const chartsDiv = document.getElementById("charts");
+      chartsDiv.style.display = "flex";
+
+      const totals = {};
+      expenses.forEach(e => totals[e.category] = (totals[e.category] || 0) + e.amount);
+
+      const labels = Object.keys(totals);
+      const values = Object.values(totals);
+
+      new Chart(document.getElementById("pieChart"), {
+        type: "pie",
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: ["#ff6384", "#36a2eb", "#cc65fe", "#ffce56", "#4bc0c0"]
+          }]
+        }
+      });
+
+      // Fake last month for bar chart
+      const lastMonth = labels.map(l => Math.round((totals[l] || 0) * (0.8 + Math.random() * 0.4)));
+
+      new Chart(document.getElementById("barChart"), {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "This Month",
+              data: values,
+              backgroundColor: "#36a2eb"
+            },
+            {
+              label: "Last Month",
+              data: lastMonth,
+              backgroundColor: "#ff6384"
+            }
+          ]
+        },
+        options: {
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+
+      const maxCategory = labels[values.indexOf(Math.max(...values))];
+      document.getElementById("suggestion").textContent =
+        `Tip 💡: Try reducing expenses on ${maxCategory} to save more!`;
+    }
+
+    function toggleChatbot() {
+      const box = document.getElementById("chatbotBox");
+      box.style.display = box.style.display === "flex" ? "none" : "flex";
+    }
+
+    function handleChat() {
+      const input = document.getElementById("chatbotInput");
+      const message = input.value.trim().toLowerCase();
+      if (message === "") return;
+
+      const chatBox = document.getElementById("chatbotMessages");
+      chatBox.innerHTML += `<div class="user-msg"><strong>You:</strong> ${message}</div>`;
+
+      let reply = "Sorry, I didn’t understand. Please ask about savings, budget, or taxes.";
+
+      if (message.includes("how to save money")) {
+        reply = "Track expenses, cut unnecessary costs, and save 20% of your income monthly.";
+        } else if (message.includes("budgeting tips")) {
+        reply = "Use the 50/30/20 rule: 50% needs, 30% wants, 20% savings.";
+      } else if (message.includes("best savings account")) {
+        reply = "Look for accounts with high interest rates and no monthly fees.";
+      } else if (message.includes("hi")) {
+        reply = "Hello! How can I assist you with your financial queries today?";
+      } else if (message.includes("ideal budget")) {
+        reply = "Use the 50/30/20 rule: 50% needs, 30% wants, 20% savings.";
+      } else if (message.includes("investment options")) {
+        reply = "Start with SIPs, mutual funds, or PPF. Safe and effective for beginners.";
+      } else if (message.includes("tax saving")) {
+        reply = "Use Section 80C: invest in ELSS, PPF, or NPS to save on taxes.";
+      } else if (message.includes("credit score")) {
+        reply = "Pay bills on time, reduce debt, and avoid credit overuse to improve score.";
+      } else if (message.includes("retirement planning")) {
+        reply = "Start early. Use PPF, NPS, or pension plans to build a retirement fund.";
+      } else if (message.includes("track expenses")) {
+        reply = "Use our app to log daily spending and compare it monthly.";
+      } else if (message.includes("monthly salary tips")) {
+        reply = "First set aside savings, then budget for needs and wants.";
+      } else if (message.includes("emergency fund")) {
+        reply = "Save 3-6 months’ worth of expenses for emergencies.";
+      } else if (message.includes("loans or emi")) {
+        reply = "Only take loans for needs, ensure EMI is under 30% of your income.";
+      }
+
+      chatBox.innerHTML += `<div class="bot-msg"><strong>Bot:</strong> ${reply}</div>`;
+      chatBox.scrollTop = chatBox.scrollHeight;
+      input.value = "";
+    }
+  </script>
+</body>
+</html>

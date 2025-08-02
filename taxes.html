@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tax Advisor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background-color: #121212;
+      color: #f1f1f1;
+      font-family: 'Segoe UI', sans-serif;
+      padding: 20px;
+      margin: 0;
+    }
+
+    h1, h2 {
+      text-align: center;
+      color: #00ffd5;
+    }
+
+    .form-section, .results {
+      max-width: 600px;
+      margin: 30px auto;
+      background-color: #1e1e1e;
+      padding: 20px;
+      border-radius: 10px;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 5px;
+      border: none;
+      background-color: #2a2a2a;
+      color: white;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background-color: #00ffd5;
+      color: #121212;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #00cbb1;
+    }
+
+    canvas {
+      max-width: 90%;
+      margin: 30px auto;
+      display: block;
+      background-color: #181818;
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    .slab-box {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background-color: #1e1e1e;
+      border: 1px solid #00ffd5;
+      color: #00ffd5;
+      padding: 15px 20px;
+      border-radius: 10px;
+      z-index: 1000;
+      font-size: 14px;
+      width: 220px;
+      box-shadow: 0 0 10px #00ffd566;
+    }
+
+    .slab-box h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      text-align: center;
+      color: #00ffd5;
+    }
+
+    .slab-box ul {
+      list-style-type: disc;
+      padding-left: 20px;
+      margin: 0;
+    }
+
+    /* Chatbot styles */
+    #chatbot-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: #1e1e1e;
+      border: 1px solid #00ffd5;
+      border-radius: 10px;
+      width: 300px;
+      max-height: 400px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 999;
+    }
+
+    #chat-header {
+      background-color: #00ffd5;
+      color: #121212;
+      padding: 10px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    #chat-messages {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      font-size: 14px;
+      background-color: #161616;
+    }
+
+    #chat-input {
+      border-top: 1px solid #333;
+      display: flex;
+    }
+
+    #chat-input input {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background-color: #2a2a2a;
+      color: white;
+    }
+
+    #chat-input button {
+      background-color: #00ffd5;
+      color: #121212;
+      border: none;
+      padding: 10px 15px;
+    }
+
+    #chat-input button:hover {
+      background-color: #00cbb1;
+    }
+
+    @media (max-width: 768px) {
+      .slab-box, #chatbot-container {
+        width: 90%;
+        right: 5%;
+      }
+      canvas {
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Tax Return Planner</h1>
+
+<div class="form-section">
+  <h2>Enter Your Financial Details</h2>
+  <label for="salary">Annual Salary (in ₹):</label>
+  <input type="number" id="salary" placeholder="Ex: 600000" />
+
+  <label for="deductions">Total Deductions (80C, 80D, etc.):</label>
+  <input type="number" id="deductions" placeholder="Ex: 150000" />
+
+  <label for="emi">Home Loan EMI Paid This Year:</label>
+  <input type="number" id="emi" placeholder="Ex: 100000" />
+
+  <label for="lic">LIC Premium Paid:</label>
+  <input type="number" id="lic" placeholder="Ex: 20000" />
+
+  <label for="taxPaid">Total Tax Paid Already:</label>
+  <input type="number" id="taxPaid" placeholder="Ex: 25000" />
+
+  <button onclick="analyzeTax()">Get Suggestions</button>
+</div>
+
+<div class="results" id="results" style="display:none;">
+  <h2>Suggestions & Tips</h2>
+  <div id="outputText"></div>
+
+  <canvas id="pieChart"></canvas>
+  <canvas id="barChart"></canvas>
+</div>
+
+<!-- Tax slab box -->
+<div class="slab-box">
+  <h3>Tax Slabs (FY 2025-26)</h3>
+  <ul>
+    <li>Up to ₹2.5L – 0%</li>
+    <li>₹2.5L - ₹5L – 5%</li>
+    <li>₹5L - ₹10L – 10%</li>
+    <li>Above ₹10L – 20%</li>
+  </ul>
+</div>
+
+<!-- Chatbot -->
+<div id="chatbot-container">
+  <div id="chat-header">💬 Tax Bot</div>
+  <div id="chat-messages"></div>
+  <div id="chat-input">
+    <input type="text" id="userInput" placeholder="Ask something..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+</div>
+
+<script>
+  function analyzeTax() {
+    const salary = parseFloat(document.getElementById('salary').value);
+    const deductions = parseFloat(document.getElementById('deductions').value);
+    const emi = parseFloat(document.getElementById('emi').value);
+    const lic = parseFloat(document.getElementById('lic').value);
+    const taxPaid = parseFloat(document.getElementById('taxPaid').value);
+
+    const totalDeductions = deductions + emi + lic;
+    const taxableIncome = Math.max(0, salary - totalDeductions);
+
+    let suggestion = `<p>Your taxable income after deductions is <strong>₹${taxableIncome.toLocaleString()}</strong>.</p>`;
+
+    if (taxableIncome < 500000) {
+      suggestion += "<p>You may not need to pay any additional tax under rebate section 87A.</p>";
+    } else {
+      suggestion += "<p>You may fall into the 5%, 10%, or 20% slab based on taxable income. Consider using full limit of 80C & 80D for deductions.</p>";
+    }
+
+    suggestion += `
+      <h3>Tax Saving Tips:</h3>
+      <ul>
+        <li>Invest in ELSS funds under section 80C.</li>
+        <li>Use NPS for extra ₹50,000 deduction under 80CCD(1B).</li>
+        <li>Take health insurance for family to save under 80D.</li>
+        <li>Use HRA benefits if you're staying in rented house.</li>
+      </ul>
+
+      <h3>Return Filing Advice:</h3>
+      <ul>
+        <li>Check Form 26AS & AIS before filing.</li>
+        <li>Disclose all income sources.</li>
+        <li>Validate bank, PAN, and Aadhaar before submitting.</li>
+      </ul>
+    `;
+
+    document.getElementById('outputText').innerHTML = suggestion;
+    document.getElementById('results').style.display = 'block';
+
+    drawGraphs(taxableIncome, salary);
+  }
+
+  function drawGraphs(taxableIncome, salary) {
+    const pieCtx = document.getElementById('pieChart').getContext('2d');
+    const barCtx = document.getElementById('barChart').getContext('2d');
+
+    new Chart(pieCtx, {
+      type: 'pie',
+      data: {
+        labels: ['Taxable Income', 'Deductions'],
+        datasets: [{
+          data: [taxableIncome, salary - taxableIncome],
+          backgroundColor: ['#00ffd5', '#ff6384']
+        }]
+      }
+    });
+
+    new Chart(barCtx, {
+      type: 'bar',
+      data: {
+        labels: ['2 Years Ago', 'Last Year', 'This Year'],
+        datasets: [{
+          label: 'Taxable Income (₹)',
+          backgroundColor: ['#ff9f40', '#36a2eb', '#00ffd5'],
+          data: [650000, 750000, taxableIncome]
+        }]
+      },
+      options: {
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  function sendMessage() {
+    const input = document.getElementById('userInput');
+    const msg = input.value.trim();
+    const chatBox = document.getElementById('chat-messages');
+
+    if (!msg) return;
+
+    chatBox.innerHTML += `<div><strong>You:</strong> ${msg}</div>`;
+
+    let botReply = "I'm not sure, try again.";
+
+    if (msg.toLowerCase().includes("save")) {
+      botReply = "You can save tax using 80C, NPS, and 80D options.";
+    } else if (msg.toLowerCase().includes("hi") || msg.toLowerCase().includes("hello")) {
+      botReply = "Hello! How can I assist you with your taxes today?";
+    } else if (msg.toLowerCase().includes("tax slab")) {
+      botReply = "The tax slabs are 5% for income above ₹2.5L, 10% for ₹5L, and 20% for ₹10L.";
+    } else if (msg.toLowerCase().includes("nps")) {
+      botReply = "NPS contributions can give you an additional deduction of ₹50,000 under section 80CCD(1B).";
+    } else if (msg.toLowerCase().includes("health insurance")) {
+      botReply = "Health insurance premiums can be claimed under section 80D.";
+    } else if (msg.toLowerCase().includes("hra")) {
+      botReply = "HRA can be claimed if you live in a rented house.";
+    } else if (msg.toLowerCase().includes("deduction")) {
+      botReply = "You can claim deductions under sections 80C, 80D, and 80CCD.";
+    } else if (msg.toLowerCase().includes("emi")) {
+      botReply = "You can claim home loan EMI under section 80C.";
+    } else if (msg.toLowerCase().includes("lic")) {
+      botReply = "LIC premiums are eligible for deduction under section 80C.";
+    } else if (msg.toLowerCase().includes("donations")) {
+      botReply = "Donations to approved charities can be claimed under section 80G.";
+    } else if (msg.toLowerCase().includes("section 80c")) {
+      botReply = "Section 80C allows deductions up to ₹1.5L for investments like PPF, ELSS, etc.";
+    } else if (msg.toLowerCase().includes("section 80d")) {
+      botReply = "Section 80D allows deductions for health insurance premiums paid.";
+    } else if (msg.toLowerCase().includes("section 80ccd")) {
+      botReply = "Section 80CCD(1B) allows an additional deduction of ₹50,000 for NPS contributions.";
+    } else if (msg.toLowerCase().includes("section 87a")) {
+      botReply = "Section 87A provides a rebate for taxable income below ₹5L.";
+    } else if (msg.toLowerCase().includes("form 26as")) {
+      botReply = "Form 26AS shows your tax credits and TDS details.";
+    } else if (msg.toLowerCase().includes("form itr-1")) {
+      botReply = "ITR-1 is for individuals with income from salary, pension, and interest.";
+    } else if (msg.toLowerCase().includes("form itr-2")) {
+      botReply = "ITR-2 is for individuals with income from capital gains or foreign assets.";
+    } else if (msg.toLowerCase().includes("file return")) {
+      botReply = "File your return before July 31 using ITR-1 or ITR-2.";
+    } else if (msg.toLowerCase().includes("advance tax")) {
+      botReply = "Ensure you pay advance tax in installments by March 15.";
+    } else if (msg.toLowerCase().includes("rebate")) {
+      botReply = "Section 87A gives rebate if your taxable income is below ₹5L.";
+    }
+
+    chatBox.innerHTML += `<div><strong>Bot:</strong> ${botReply}</div>`;
+    chatBox.scrollTop = chatBox.scrollHeight;
+    input.value = '';
+  }
+</script>
+</body>
+</html>
